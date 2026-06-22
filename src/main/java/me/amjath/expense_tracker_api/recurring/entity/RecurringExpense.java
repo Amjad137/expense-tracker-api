@@ -71,10 +71,7 @@ public class RecurringExpense extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
-    // ---------------------------------------------------------------
     // Domain logic
-    // ---------------------------------------------------------------
-
     /**
      * Calculates the next due date from a given base date using the frequency.
      */

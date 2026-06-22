@@ -108,10 +108,7 @@ public class CategoryService {
         log.info("Category soft-deleted: {}", id);
     }
 
-    // ---------------------------------------------------------------
     // Package-accessible helper (used by other services)
-    // ---------------------------------------------------------------
-
     public Category findCategoryForUser(UUID id, User user) {
         // Check system first, then user-owned
         return categoryRepository.findByIdAndSystemTrue(id)

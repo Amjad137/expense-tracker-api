@@ -6,6 +6,7 @@ import me.amjath.expense_tracker_api.expense.repository.ExpenseRepository;
 import me.amjath.expense_tracker_api.income.repository.IncomeRepository;
 import me.amjath.expense_tracker_api.report.dto.CategoryReportResponse;
 import me.amjath.expense_tracker_api.report.dto.MonthlyReportResponse;
+import me.amjath.expense_tracker_api.report.projection.CategoryAmountSummary;
 import me.amjath.expense_tracker_api.user.entity.User;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -61,10 +62,7 @@ public class ReportService {
         return getCategoryBreakdown(user, startDate, endDate, totalExpense, false);
     }
 
-    // ---------------------------------------------------------------
     // Private helpers
-    // ---------------------------------------------------------------
-
     private List<CategoryReportResponse> getCategoryBreakdown(
             User user, LocalDate startDate, LocalDate endDate,
             BigDecimal grandTotal, boolean isIncome) {
@@ -79,83 +77,40 @@ public class ReportService {
 
     private List<CategoryReportResponse> getExpenseCategoryBreakdown(
             User user, LocalDate startDate, LocalDate endDate, BigDecimal grandTotal) {
-
-        // Fetch all expenses for the period (paginated for safety)
-        var expenses = expenseRepository.findAllByUser(user,
-                PageRequest.of(0, Integer.MAX_VALUE, Sort.by("expenseDate")));
-
-        // Group by category, filter by date
-        var grouped = expenses.getContent().stream()
-                .filter(e -> !e.getExpenseDate().isBefore(startDate) && !e.getExpenseDate().isAfter(endDate))
-                .collect(Collectors.groupingBy(
-                        e -> e.getCategory() != null ? e.getCategory().getName() : "Uncategorized",
-                        Collectors.toList()
-                ));
-
-        return grouped.entrySet().stream()
-                .map(entry -> {
-                    var categoryExpenses = entry.getValue();
-                    var cat = categoryExpenses.get(0).getCategory();
-                    BigDecimal catTotal = categoryExpenses.stream()
-                            .map(me.amjath.expense_tracker_api.expense.entity.Expense::getAmount)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                    double pct = grandTotal.compareTo(BigDecimal.ZERO) > 0
-                            ? catTotal.multiply(BigDecimal.valueOf(100))
-                              .divide(grandTotal, 2, RoundingMode.HALF_UP).doubleValue()
-                            : 0.0;
-
-                    return CategoryReportResponse.builder()
-                            .categoryId(cat != null ? cat.getId() : null)
-                            .categoryName(entry.getKey())
-                            .categoryIcon(cat != null ? cat.getIcon() : null)
-                            .categoryColor(cat != null ? cat.getColor() : null)
-                            .totalAmount(catTotal)
-                            .transactionCount(categoryExpenses.size())
-                            .percentageOfTotal(pct)
-                            .build();
-                })
-                .sorted((a, b) -> b.getTotalAmount().compareTo(a.getTotalAmount()))
-                .collect(Collectors.toList());
+        return expenseRepository.getExpenseCategorySummaryByUserAndDateRange(user, startDate, endDate)
+                .stream()
+                .map(summary -> toCategoryReportResponse(summary, grandTotal))
+                .toList();
     }
 
     private List<CategoryReportResponse> getIncomeCategoryBreakdown(
             User user, LocalDate startDate, LocalDate endDate, BigDecimal grandTotal) {
+        return incomeRepository
+                .getIncomeCategorySummaryByUserAndDateRange(user, startDate, endDate)
+                .stream()
+                .map(summary -> toCategoryReportResponse(summary, grandTotal))
+                .toList();
+    }
 
-        var incomes = incomeRepository.findAllByUser(user,
-                PageRequest.of(0, Integer.MAX_VALUE, Sort.by("incomeDate")));
+    private CategoryReportResponse toCategoryReportResponse(
+            CategoryAmountSummary summary,
+            BigDecimal grandTotal
+    ) {
+        double percentageOfTotal = grandTotal.compareTo(BigDecimal.ZERO) > 0
+                ? summary.getTotalAmount()
+                  .multiply(BigDecimal.valueOf(100))
+                  .divide(grandTotal, 2, RoundingMode.HALF_UP)
+                  .doubleValue()
+                : 0.0;
 
-        var grouped = incomes.getContent().stream()
-                .filter(i -> !i.getIncomeDate().isBefore(startDate) && !i.getIncomeDate().isAfter(endDate))
-                .collect(Collectors.groupingBy(
-                        i -> i.getCategory() != null ? i.getCategory().getName() : "Uncategorized",
-                        Collectors.toList()
-                ));
-
-        return grouped.entrySet().stream()
-                .map(entry -> {
-                    var categoryIncomes = entry.getValue();
-                    var cat = categoryIncomes.get(0).getCategory();
-                    BigDecimal catTotal = categoryIncomes.stream()
-                            .map(me.amjath.expense_tracker_api.income.entity.Income::getAmount)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                    double pct = grandTotal.compareTo(BigDecimal.ZERO) > 0
-                            ? catTotal.multiply(BigDecimal.valueOf(100))
-                              .divide(grandTotal, 2, RoundingMode.HALF_UP).doubleValue()
-                            : 0.0;
-
-                    return CategoryReportResponse.builder()
-                            .categoryId(cat != null ? cat.getId() : null)
-                            .categoryName(entry.getKey())
-                            .categoryIcon(cat != null ? cat.getIcon() : null)
-                            .categoryColor(cat != null ? cat.getColor() : null)
-                            .totalAmount(catTotal)
-                            .transactionCount(categoryIncomes.size())
-                            .percentageOfTotal(pct)
-                            .build();
-                })
-                .sorted((a, b) -> b.getTotalAmount().compareTo(a.getTotalAmount()))
-                .collect(Collectors.toList());
+        return CategoryReportResponse.builder()
+                .categoryId(summary.getCategoryId())
+                .categoryName(summary.getCategoryName())
+                .categoryIcon(summary.getCategoryIcon())
+                .categoryColor(summary.getCategoryColor())
+                .totalAmount(summary.getTotalAmount())
+                .transactionCount(summary.getTransactionCount())
+                .percentageOfTotal(percentageOfTotal)
+                .build();
     }
 }

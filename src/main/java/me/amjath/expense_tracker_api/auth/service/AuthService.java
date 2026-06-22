@@ -74,10 +74,7 @@ public class AuthService {
         return buildAuthResponse(user, request.getDeviceInfo());
     }
 
-    // ---------------------------------------------------------------
     // Refresh token
-    // ---------------------------------------------------------------
-
     @Transactional
     public AuthResponse refresh(RefreshTokenRequest request) {
         RefreshToken storedToken = refreshTokenRepository.findByToken(request.getRefreshToken())
@@ -99,10 +96,7 @@ public class AuthService {
                 : storedToken.getDeviceInfo());
     }
 
-    // ---------------------------------------------------------------
     // Logout
-    // ---------------------------------------------------------------
-
     @Transactional
     public void logout(LogoutRequest request) {
         RefreshToken token = refreshTokenRepository.findByToken(request.getRefreshToken())
@@ -118,10 +112,7 @@ public class AuthService {
         }
     }
 
-    // ---------------------------------------------------------------
     // Private helpers
-    // ---------------------------------------------------------------
-
     private AuthResponse buildAuthResponse(User user, String deviceInfo) {
         String accessToken = jwtService.generateAccessToken(user);
         String rawRefreshToken = UUID.randomUUID().toString();

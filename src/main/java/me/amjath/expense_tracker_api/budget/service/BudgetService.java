@@ -111,10 +111,7 @@ public class BudgetService {
         log.info("Budget soft-deleted: {}", id);
     }
 
-    // ---------------------------------------------------------------
     // Helpers
-    // ---------------------------------------------------------------
-
     private BigDecimal calculateSpent(Budget budget, User user) {
         LocalDate startDate = LocalDate.of(budget.getYear(), budget.getMonth(), 1);
         LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
